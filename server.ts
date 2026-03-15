@@ -1,14 +1,49 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
+import "dotenv/config";
+import net from "node:net";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function parsePreferredPort(value: string | undefined): number {
+  const parsedPort = Number.parseInt(value ?? "3000", 10);
+  return Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 3000;
+}
+
+function getAvailablePort(startPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tryPort = (port: number) => {
+      const tester = net.createServer();
+
+      tester.once("error", (error: NodeJS.ErrnoException) => {
+        tester.close();
+
+        if (error.code === "EADDRINUSE") {
+          tryPort(port + 1);
+          return;
+        }
+
+        reject(error);
+      });
+
+      tester.once("listening", () => {
+        tester.close(() => resolve(port));
+      });
+
+      tester.listen(port, "0.0.0.0");
+    };
+
+    tryPort(startPort);
+  });
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const preferredPort = parsePreferredPort(process.env.PORT);
+  const port = await getAvailablePort(preferredPort);
 
   app.use(express.json());
   
@@ -48,7 +83,10 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -60,8 +98,9 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 VisionTutor Backend running on http://localhost:${PORT}`);
+  app.listen(port, "0.0.0.0", () => {
+    const portSuffix = port === preferredPort ? "" : ` (3000 was busy, using ${port})`;
+    console.log(`VisionTutor Backend running on http://localhost:${port}${portSuffix}`);
   });
 }
 

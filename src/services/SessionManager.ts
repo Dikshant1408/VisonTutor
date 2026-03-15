@@ -1,19 +1,52 @@
 import { geminiService, LiveSessionConfig } from '../lib/gemini';
 import { useTutorStore } from '../store/useTutorStore';
 
+const DEMO_MODE_KEY = 'visionTutor.demoMode';
+
 export class SessionManager {
   private session: any = null;
   private audioContext: AudioContext | null = null;
   private nextStartTime: number = 0;
+  private usingLocalDemoSession = false;
+
+  private isDemoModeEnabled() {
+    return typeof window !== 'undefined' && window.localStorage.getItem(DEMO_MODE_KEY) === 'true';
+  }
+
+  private startLocalDemoSession() {
+    const store = useTutorStore.getState();
+    this.usingLocalDemoSession = true;
+    this.session = {
+      close: () => {
+        const currentStore = useTutorStore.getState();
+        currentStore.setSessionActive(false);
+        currentStore.setStreaming(false);
+      },
+      sendRealtimeInput: (_input: any) => {},
+      sendToolResponse: (_response: any) => {},
+    };
+
+    store.setSessionActive(true);
+    store.setStreaming(true);
+    store.setActiveTab('chat');
+    store.addTranscript(
+      'ai',
+      'Local demo session started. Camera and microphone are enabled, but live Gemini responses are unavailable until VITE_GEMINI_API_KEY is configured.'
+    );
+
+    return this.session;
+  }
 
   async start(config?: LiveSessionConfig) {
     const store = useTutorStore.getState();
     
     try {
+      this.stop();
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
       this.session = await geminiService.connect({
         onopen: () => {
+          this.usingLocalDemoSession = false;
           store.setSessionActive(true);
           store.setStreaming(true);
         },
@@ -28,6 +61,12 @@ export class SessionManager {
       return this.session;
     } catch (err) {
       console.error("Failed to start session:", err);
+
+      if (this.isDemoModeEnabled()) {
+        return this.startLocalDemoSession();
+      }
+
+      store.addTranscript('ai', 'Unable to start the live session. Configure VITE_GEMINI_API_KEY and try again.');
       throw err;
     }
   }
@@ -42,6 +81,7 @@ export class SessionManager {
       this.audioContext = null;
     }
     this.nextStartTime = 0;
+    this.usingLocalDemoSession = false;
   }
 
   private handleMessage(message: any) {
@@ -124,6 +164,17 @@ export class SessionManager {
   }
 
   sendInput(input: any) {
+    if (this.usingLocalDemoSession) {
+      const store = useTutorStore.getState();
+
+      if (typeof input?.text === 'string' && !input.text.startsWith('[OCR HINT:')) {
+        store.addTranscript('user', input.text);
+        store.addTranscript('ai', 'Demo mode received your message. Add VITE_GEMINI_API_KEY to enable real tutoring responses.');
+      }
+
+      return;
+    }
+
     if (this.session) {
       this.session.sendRealtimeInput(input);
     }

@@ -29,6 +29,7 @@ export const TutorInterface: React.FC = () => {
   const store = useTutorStore();
   const [mode, setMode] = useState<'study' | 'solve'>('study');
   const user = auth.currentUser;
+  const isDemoMode = !user;
 
   // Load history from Firestore
   useEffect(() => {
@@ -52,7 +53,11 @@ export const TutorInterface: React.FC = () => {
   }, [user]);
 
   const startSession = async () => {
-    await sessionManager.start({ mode });
+    try {
+      await sessionManager.start({ mode });
+    } catch (error) {
+      console.error('Failed to start tutor session:', error);
+    }
   };
 
   const stopSession = () => {
@@ -71,6 +76,16 @@ export const TutorInterface: React.FC = () => {
         media: { data: base64, mimeType: 'audio/pcm;rate=16000' }
       });
     }
+  };
+
+  const handleExit = () => {
+    if (user) {
+      void logout();
+      return;
+    }
+
+    window.localStorage.removeItem('visionTutor.demoMode');
+    window.location.reload();
   };
 
   return (
@@ -113,11 +128,12 @@ export const TutorInterface: React.FC = () => {
                 <UserIcon className="w-4 h-4 text-zinc-400" />
               )}
             </div>
-            <span className="text-sm font-bold hidden sm:block">{user?.displayName?.split(' ')[0]}</span>
+            <span className="text-sm font-bold hidden sm:block">{isDemoMode ? 'Guest' : user?.displayName?.split(' ')[0]}</span>
           </div>
           <button 
-            onClick={() => logout()}
+            onClick={handleExit}
             className="p-3 rounded-2xl hover:bg-zinc-900 text-zinc-500 hover:text-rose-400 transition-all border border-transparent hover:border-rose-500/20"
+            title={isDemoMode ? 'Exit demo mode' : 'Sign out'}
           >
             <LogOut className="w-5 h-5" />
           </button>

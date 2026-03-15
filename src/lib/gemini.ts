@@ -15,6 +15,22 @@ export interface LiveSessionConfig {
   mode?: 'study' | 'solve';
 }
 
+function getGeminiApiKey(): string | undefined {
+  const viteEnv = import.meta.env?.VITE_GEMINI_API_KEY;
+  if (typeof viteEnv === "string" && viteEnv.trim().length > 0) {
+    return viteEnv;
+  }
+
+  if (typeof process !== "undefined" && process.env) {
+    const processEnvKey = process.env.GEMINI_API_KEY;
+    if (typeof processEnvKey === "string" && processEnvKey.trim().length > 0) {
+      return processEnvKey;
+    }
+  }
+
+  return undefined;
+}
+
 const solveSymbolicTool = {
   functionDeclarations: [
     {
@@ -202,14 +218,20 @@ const consistencyValidatorTool = {
 };
 
 export class GeminiLiveService {
-  private ai: GoogleGenAI;
-  
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set");
+  private ai: GoogleGenAI | null = null;
+
+  private getClient(): GoogleGenAI {
+    if (this.ai) {
+      return this.ai;
     }
+
+    const apiKey = getGeminiApiKey();
+    if (!apiKey) {
+      throw new Error("Gemini API key is not set. Add VITE_GEMINI_API_KEY to your .env file.");
+    }
+
     this.ai = new GoogleGenAI({ apiKey });
+    return this.ai;
   }
 
   async connect(callbacks: {
@@ -225,7 +247,7 @@ export class GeminiLiveService {
       preferred_style: 'visual'
     };
 
-    return this.ai.live.connect({
+    return this.getClient().live.connect({
       model: GEMINI_MODEL,
       callbacks,
       config: {
