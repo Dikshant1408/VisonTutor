@@ -1,0 +1,8 @@
+{
+  "name": "VisionTutor AI",
+  "description": "VisionTutor AI: A real-time multimodal AI tutor that analyzes homework via camera and provides step-by-step voice and text explanations using Gemini Live API.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

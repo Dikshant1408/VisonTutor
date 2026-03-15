@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A tutoring session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "subject": { "type": "string" },
+        "summary": { "type": "string" }
+      },
+      "required": ["id", "userId", "startTime"]
+    },
+    "Interaction": {
+      "title": "Interaction",
+      "description": "A single question/answer interaction",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "studentInput": { "type": "string" },
+        "tutorResponse": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["sessionId", "userId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Tutoring sessions"
+    },
+    "/interactions/{interactionId}": {
+      "schema": "Interaction",
+      "description": "Interactions across all sessions"
+    }
+  }
+}
